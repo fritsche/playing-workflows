@@ -1,0 +1,29 @@
+name: Playground
+
+on:
+  workflow_dispatch:
+
+jobs:
+  playground:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.53.0-noble
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+        
+      - name: Debug is on the table
+        run: mkdir -p artifacts && echo "Debug is on the table" > artifacts/debug.txt
+
+      - name: Save GitHub artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-tests
+          path: playwright-report/
