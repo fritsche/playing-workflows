@@ -25,5 +25,5 @@ jobs:
       - name: Save GitHub artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: performance-tests
-          path: playwright-report/
+          name: artifacts
+          path: artifacts/
