@@ -42,6 +42,7 @@ jobs:
 
       - name: Download previous artifact
         if: steps.find_run.outputs.run_id
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: data-artifact
