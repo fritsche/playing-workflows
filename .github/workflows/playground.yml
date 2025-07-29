@@ -3,34 +3,65 @@ name: Playground
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
-  playground:
+  append-artifact:
     runs-on: ubuntu-latest
-    container:
-      image: mcr.microsoft.com/playwright:v1.53.0-noble
-    
+
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Find previous successful run
+        id: find_run
+        uses: actions/github-script@v6
         with:
-          node-version: 22.x
-          cache: npm
-        
-      # read previous artifacts
-      - name: Read previous artifacts
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { repo, owner } = context.repo;
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner,
+              repo,
+              workflow_id: 'playground.yml',
+              status: 'success',
+              per_page: 2
+            });
+
+            const currentRunId = context.runId;
+            const previousRun = runs.data.workflow_runs.find(run => run.id !== currentRunId);
+
+            if (!previousRun) {
+              core.warning('No previous run found. Initializing empty data.');
+              return;
+            }
+
+            core.setOutput('run_id', previousRun.id);
+
+      - name: Download previous artifact
+        if: steps.find_run.outputs.run_id
         uses: actions/download-artifact@v4
         with:
-          name: artifacts
-          path: artifacts/
+          name: data-artifact
+          run-id: ${{ steps.find_run.outputs.run_id }}
+          path: old_artifact
 
-      - name: Debug is on the table
-        run: mkdir -p artifacts && echo "Debug is on the table" >> artifacts/debug.txt
+      - name: Prepare updated data
+        run: |
+          mkdir -p merged_artifact
+          if [[ -f old_artifact/data.json ]]; then
+            echo "Found previous artifact, appending new data."
+            jq '. + [{ "timestamp": "${{ github.run_id }}" }]' old_artifact/data.json > merged_artifact/data.json
+          else
+            echo "No previous data found, creating new data.json"
+            echo '[{ "timestamp": "${{ github.run_id }}" }]' > merged_artifact/data.json
+          fi
 
-      - name: Save GitHub artifacts
+      - name: Upload updated artifact
         uses: actions/upload-artifact@v4
         with:
-          name: artifacts
-          path: artifacts/
+          name: data-artifact
+          path: merged_artifact/data.json
+          retention-days: 7
